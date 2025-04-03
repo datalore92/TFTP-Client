@@ -62,7 +62,7 @@ cmake --build .
 
 For those who just want to use the application without building it:
 
-1. Visit our [GitHub Releases page](https://github.com/datalore92/tftp-client/releases)
+1. Visit our [GitHub Releases page](https://github.com/datalore92/TFTP-Client/releases)
 2. Download the appropriate version for your platform:
    - Windows users: Download `tftp-client-windows.zip`
    - Linux users: Download `tftp-client-linux.tar.gz`
