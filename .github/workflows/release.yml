@@ -1,0 +1,125 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gtk3
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-pkg-config
+          make
+          
+    - name: Build project
+      shell: msys2 {0}
+      run: |
+        mkdir -p build
+        cd build
+        cmake -G "MSYS Makefiles" ..
+        make
+        
+    - name: Copy dependencies
+      shell: msys2 {0}
+      run: |
+        mkdir -p dist/windows
+        cp build/tftp_client.exe dist/windows/
+        # Copy required DLLs (GTK, etc.)
+        cp /mingw64/bin/libgtk-3-*.dll dist/windows/
+        cp /mingw64/bin/libgdk-3-*.dll dist/windows/
+        cp /mingw64/bin/libglib-2.0-*.dll dist/windows/
+        cp /mingw64/bin/libgobject-2.0-*.dll dist/windows/
+        cp /mingw64/bin/libcairo-*.dll dist/windows/
+        cp /mingw64/bin/libpango-*.dll dist/windows/
+        cp /mingw64/bin/libintl-*.dll dist/windows/
+        cp /mingw64/bin/libpixman-*.dll dist/windows/
+        cp /mingw64/bin/libpng*.dll dist/windows/
+        cp /mingw64/bin/zlib*.dll dist/windows/
+        cp /mingw64/bin/libepoxy-*.dll dist/windows/
+        cp /mingw64/bin/libffi-*.dll dist/windows/
+        cp /mingw64/bin/libiconv-*.dll dist/windows/
+        cp /mingw64/bin/libatk-*.dll dist/windows/
+        cp /mingw64/bin/libpangocairo-*.dll dist/windows/
+        cp /mingw64/bin/libpangowin32-*.dll dist/windows/
+        cp /mingw64/bin/libfontconfig-*.dll dist/windows/
+        cp /mingw64/bin/libfreetype-*.dll dist/windows/
+        cp /mingw64/bin/libgio-*.dll dist/windows/
+        cp /mingw64/bin/libgmodule-*.dll dist/windows/
+        cp /mingw64/bin/libharfbuzz-*.dll dist/windows/
+        cp /mingw64/bin/libgdk_pixbuf-*.dll dist/windows/
+        mkdir -p dist/windows/share
+        cp -r /mingw64/share/glib-2.0 dist/windows/share/
+        cp -r /mingw64/share/icons dist/windows/share/
+        
+    - name: Create ZIP archive
+      shell: cmd
+      run: |
+        cd dist
+        powershell Compress-Archive -Path windows -DestinationPath tftp-client-windows.zip
+        
+    - name: Upload Windows build
+      uses: actions/upload-artifact@v3
+      with:
+        name: tftp-client-windows
+        path: dist/tftp-client-windows.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake libgtk-3-dev
+        
+    - name: Build project
+      run: |
+        mkdir -p build
+        cd build
+        cmake ..
+        make
+        
+    - name: Create distribution directory
+      run: |
+        mkdir -p dist/linux
+        cp build/tftp_client dist/linux/
+        chmod +x dist/linux/tftp_client
+        cd dist
+        tar -czvf tftp-client-linux.tar.gz linux
+        
+    - name: Upload Linux build
+      uses: actions/upload-artifact@v3
+      with:
+        name: tftp-client-linux
+        path: dist/tftp-client-linux.tar.gz
+
+  create-release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          tftp-client-windows/tftp-client-windows.zip
+          tftp-client-linux/tftp-client-linux.tar.gz
+        draft: false
+        prerelease: false
